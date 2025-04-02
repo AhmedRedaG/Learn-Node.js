@@ -7,6 +7,11 @@ const server = html.createServer((req, res) => {
   const url = req.url,
     method = req.method;
 
+  const errorHandler = (err) => {
+    console.error(err);
+    return res.end("Error in users.txt");
+  };
+
   if (url === "/") {
     res.write(`
       <!DOCTYPE html>
@@ -38,49 +43,49 @@ const server = html.createServer((req, res) => {
     return req.on("end", (err) => {
       const parsedBody = Buffer.concat(body).toString();
       const username = parsedBody.split("=")[1];
-      console.log(`New user created: ${username}`);
       // Save user data to a file
-      fs.appendFile("users.txt", username + "\n", (err) => {
-        if (err) throw err;
-        console.log("User saved successfully.");
-      });
-      res.writeHead(302, { Location: "/users" });
-      return res.end();
+      fs.promises
+        .appendFile("users.txt", username + "\n")
+        .then(() => {
+          console.log(`New user created and saved successfully: ${username}`);
+          res.writeHead(302, { Location: "/users" });
+          return res.end();
+        })
+        .catch(errorHandler);
     });
   }
   if (url === "/users") {
-    try {
-      const users = fs.readFileSync("users.txt", "utf8");
-      res.write(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>Users</title>
-      </head>
-      <body>
-        <h2 style="padding:20px;text-align:center;margin:20px 0;">Users</h2>
-        <hr />
-        <ul>
-                  ${
-                    users
-                      .trim()
-                      .split("\n")
-                      .map((user) => `<li>${user}</li>`)
-                      .join("") || "no users yet"
-                  }
-        </ul>
-        <hr />
-        <form action="/" method="POST">
-          <button type="submit">Back to home</button>
-        </form>
-      </body>
-      </html>`);
-      return res.end();
-    } catch (err) {
-      console.error(err);
-      return res.end("Error reading users.txt");
-    }
+    return fs.promises
+      .readFile("users.txt", "utf8")
+      .then((users) => {
+        res.write(`
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <title>Users</title>
+          </head>
+          <body>
+            <h2 style="padding:20px;text-align:center;margin:20px 0;">Users</h2>
+            <hr />
+            <ul>
+                      ${
+                        users
+                          .trim()
+                          .split("\n")
+                          .map((user) => `<li>${user}</li>`)
+                          .join("") || "no users yet"
+                      }
+            </ul>
+            <hr />
+            <form action="/" method="POST">
+              <button type="submit">Back to home</button>
+            </form>
+          </body>
+          </html>`);
+        return res.end();
+      })
+      .catch(errorHandler);
   }
 });
 
